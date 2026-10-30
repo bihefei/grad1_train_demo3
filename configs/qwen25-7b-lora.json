@@ -1,0 +1,47 @@
+{
+  "config_name": "qwen25-7b-lora",
+  "mode": "lora",
+  "model_name": "Qwen/Qwen2.5-7B",
+  "instruction": "请从下面的生物医学句子中提取所有基因（GENE）实体，若有多个实体请用逗号分隔；若句子中没有基因实体，请回答：无。",
+  "max_len": 384,
+  "data": {
+    "train_path": "data/bc2gm/train.json",
+    "dev_path": "data/bc2gm/dev.json",
+    "test_path": "data/bc2gm/test.json",
+    "labels_path": "data/bc2gm/labels.json"
+  },
+  "lora": {
+    "r": 8,
+    "lora_alpha": 16,
+    "lora_dropout": 0.05,
+    "bias": "none",
+    "target_modules": ["q_proj", "k_proj", "v_proj", "o_proj"]
+  },
+  "train": {
+    "epochs": 3,
+    "batch_size": 4,
+    "grad_accum": 4,
+    "lr": 0.0002,
+    "weight_decay": 0.01,
+    "warmup_ratio": 0.05,
+    "lr_scheduler": "cosine",
+    "max_grad_norm": 1.0,
+    "seed": 101,
+    "gradient_checkpointing": true,
+    "bf16": true,
+    "dataloader_num_workers": 0
+  },
+  "eval": {
+    "max_new_tokens": 64,
+    "batch_size": 8,
+    "train_eval_samples": 500
+  },
+  "output": {
+    "root": "outputs",
+    "use_timestamp_on_conflict": true
+  },
+  "swanlab": {
+    "enabled": true,
+    "project": "demo3-bc2gm-ner"
+  }
+}

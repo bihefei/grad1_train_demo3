@@ -1,0 +1,108 @@
+# Python 通用缓存和编译文件
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+*.pyd
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# 模型权重和大型二进制文件
+*.pth
+*.pt
+*.bin
+*.ckpt
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+*.onnx
+*.pb
+*.safetensors
+*.safetensors.index.json
+*.msgpack
+*.ot
+*.tflite
+
+# 预训练模型文件夹
+bert-base-chinese/
+chinese-bert-wwm/
+roberta/
+model/
+models/
+
+
+# 忽略 data 目录下的大体积/临时文件；保留 json 标注文件
+data/**/*.zip
+data/**/*.rar
+data/**/*.gz
+data/**/*.tar
+data/**/*.csv
+data/**/*.txt
+data/**/*.jsonl
+
+# 日志、可视化和运行输出
+swanlog/
+logs/
+runs/
+output/
+outputs/
+wandb/
+lightning_logs/
+*.log
+*.tmp
+*.out
+*.tfevents
+events.out.tfevents.*
+
+# 压缩包，避免误提交整包备份
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+*.rar
+
+# 测试/类型检查/格式化工具缓存
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# AutoDL / Jupyter / Linux系统残留文件
+.autodl/
+.ipynb_checkpoints/
+.Trash-0/
+
+# 编辑器和系统文件
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+Thumbs.db
+
+# 虚拟环境
+.env
+.venv
+venv/
+ENV/
+env/
