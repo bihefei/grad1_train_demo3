@@ -59,9 +59,6 @@ demo3/
 pip install -r requirements.txt
 ```
 
-- Windows 上跑 QLoRA 的 4-bit 量化可能因 `bitsandbytes` 支持不完整而报错，建议在 WSL2 / Linux 下运行，或直接用 LoRA 路线。
-- 国内下载模型慢时，可设置镜像后再运行：`$env:HF_ENDPOINT = "https://hf-mirror.com"`
-
 ## 使用方法
 
 1. 安装依赖：`pip install -r requirements.txt`
