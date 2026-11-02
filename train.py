@@ -44,19 +44,17 @@ def _build_training_args(cfg, run_dir, has_swanlab):
         gradient_checkpointing=train_cfg.get("gradient_checkpointing", True),
         logging_steps=10,
         save_total_limit=2,
-        load_best_model_at_end=True,      # 测试必须用验证集最佳权重，不用最后一轮
-        metric_for_best_model="f1",
-        greater_is_better=True,
-        predict_with_generate=True,       # 评估时让模型真正生成答案，再解析算 F1
+        # 真正的 dev F1 改由训练结束后的 NERGenerativeEvaluator（逐批 generate）计算。
+        load_best_model_at_end=False,
         bf16=train_cfg.get("bf16", True), 
         dataloader_num_workers=train_cfg.get("dataloader_num_workers", 0),
         seed=train_cfg["seed"],
-        report_to=(["swanlab"] if has_swanlab else []),
+        report_to="none",  # SwanLab 通过 callbacks 里的 SwanLabCallback 独立记录；4.44.0 的 report_to 不认识 "swanlab"
     )
 
-    # 不同版本参数名兼容
+    # 不同版本参数名兼容。训练中不评估（生成式评估要把整集logits攒进显存，必OOM）
     eval_key = "eval_strategy" if "eval_strategy" in sig_params else "evaluation_strategy"
-    args_dict[eval_key] = "epoch"
+    args_dict[eval_key] = "no"
     args_dict["save_strategy"] = "epoch"
 
     # 新版本支持gradient_checkpointing_kwargs，use_reentrant=False更稳
@@ -135,7 +133,7 @@ def main(cfg, config_name):
         torch.cuda.reset_peak_memory_stats()  # 记录本轮训练的显存峰值
     trainer.train()
 
-    # 保存PEFT适配器+tokenizer+训练摘要
+    # 保存PEFT适配器+tokenizer（用训练结束后的最终权重）
     trainer.save_model(str(run_dir))
     tokenizer.save_pretrained(str(run_dir))
     peak_gb = (
@@ -143,19 +141,8 @@ def main(cfg, config_name):
         if torch.cuda.is_available()
         else None
     )
-    summary = {
-        "config_name": config_name,
-        "mode": cfg["mode"],
-        "r": cfg["lora"]["r"],
-        "best_dev_f1": trainer.state.best_metric,
-        "best_checkpoint": trainer.state.best_model_checkpoint,
-        "peak_memory_gb": peak_gb,
-        "train_samples": len(train_set),
-    }
-    save_json(summary, run_dir / "train_summary.json")
-    print(f"[train] 最佳验证集 F1={trainer.state.best_metric} | 显存峰值={peak_gb} GB")
 
-    # 用验证集最佳权重在完整dev上复评一次，与test.py评估逻辑相同
+    # 训练结束后在完整 dev 上做生成式评估（逐批 generate，内存友好），与 test.py 逻辑相同
     evaluator = NERGenerativeEvaluator(
         model, tokenizer,
         max_new_tokens=cfg["eval"]["max_new_tokens"],
@@ -165,6 +152,20 @@ def main(cfg, config_name):
     dev_metrics, dev_predictions = evaluator.evaluate(dev_set, split_name="dev")
     save_json(dev_metrics, run_dir / "dev_metrics.json")
     save_json(dev_predictions[:200], run_dir / "dev_predictions_sample.json")
+
+    summary = {
+        "config_name": config_name,
+        "mode": cfg["mode"],
+        "r": cfg["lora"]["r"],
+        "dev_f1": dev_metrics["f1"],
+        "dev_precision": dev_metrics["precision"],
+        "dev_recall": dev_metrics["recall"],
+        "saved_model_dir": str(run_dir),
+        "peak_memory_gb": peak_gb,
+        "train_samples": len(train_set),
+    }
+    save_json(summary, run_dir / "train_summary.json")
+    print(f"[train] dev F1={dev_metrics['f1']} | 显存峰值={peak_gb} GB")
 
     print(f"[done] 全部产物已归档到: {run_dir}")
     print("[done] 下一步: python test.py --config <同一个配置> 在 test 集上出最终 F1")

@@ -64,12 +64,15 @@ def entity_f1_from_texts(pred_texts, gold_lists):
 
 
 def make_compute_metrics(tokenizer, gold_lists):
-    """Trainer在predict_with_generate=True处的接口"""
+    """训练时评估接口：基础 Trainer 在 eval 阶段返回的是 logits，需要 argmax 成 token id 再解码"""
 
     def compute_metrics(eval_pred):
         preds = eval_pred.predictions
         if isinstance(preds, tuple):
             preds = preds[0]
+        # 基础 Trainer 返回 logits [B, S, V]；若已为 token id [B, S] 则直接用
+        if getattr(preds, "ndim", 0) == 3:
+            preds = preds.argmax(axis=-1)
         texts = tokenizer.batch_decode(preds, skip_special_tokens=True)
         return entity_f1_from_texts(texts, gold_lists)
 
