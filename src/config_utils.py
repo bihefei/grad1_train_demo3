@@ -112,6 +112,8 @@ def build_arg_parser():
     parser.add_argument("--seed", type=int, default=None, help="随机种子")
     parser.add_argument("--max_len", type=int, default=None, help="最大序列长度")
     parser.add_argument("--run_dir", default=None, help="指定实验目录（test/predict 用；默认自动选最新）")
+    parser.add_argument("--split", default="test", choices=["train", "dev", "test"],
+                        help="评估用哪个集合（test.py 用；dev 可不重训直接评已保存权重）")
     return parser
 
 

@@ -49,7 +49,7 @@ def _build_training_args(cfg, run_dir, has_swanlab):
         bf16=train_cfg.get("bf16", True), 
         dataloader_num_workers=train_cfg.get("dataloader_num_workers", 0),
         seed=train_cfg["seed"],
-        report_to="none",  # SwanLab 通过 callbacks 里的 SwanLabCallback 独立记录；4.44.0 的 report_to 不认识 "swanlab"
+        report_to="none", 
     )
 
     # 不同版本参数名兼容。训练中不评估（生成式评估要把整集logits攒进显存，必OOM）
@@ -83,7 +83,7 @@ def main(cfg, config_name):
     save_json(cfg, run_dir / "config.json")  # 产物归档：配置随实验一起留存
     print(f"[run] 实验目录: {run_dir}")
 
-    # 3) 数据预处理。bc2gm JSON -> SFT 样本
+    # 3数据预处理。bc2gm JSON -> SFT 样本
     tokenizer = build_tokenizer(cfg["model_name"])
     instruction = cfg.get("instruction")
     train_set = Bc2gmNerDataset(
@@ -142,12 +142,13 @@ def main(cfg, config_name):
         else None
     )
 
-    # 训练结束后在完整 dev 上做生成式评估（逐批 generate，内存友好），与 test.py 逻辑相同
+    # 训练结束后在完整dev上做生成式评估
     evaluator = NERGenerativeEvaluator(
         model, tokenizer,
         max_new_tokens=cfg["eval"]["max_new_tokens"],
         batch_size=cfg["eval"]["batch_size"],
         max_length=cfg["max_len"],
+        instruction=cfg.get("instruction"),
     )
     dev_metrics, dev_predictions = evaluator.evaluate(dev_set, split_name="dev")
     save_json(dev_metrics, run_dir / "dev_metrics.json")

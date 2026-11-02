@@ -4,7 +4,7 @@ from pathlib import Path
 
 import torch
 
-from src.data_utils import ANSWER_MARK, EMPTY_ANSWERS
+from src.data_utils import ANSWER_MARK, EMPTY_ANSWERS, build_prompt
 
 # 多个实体之间的分隔符
 _SPLIT_RE = re.compile(r"[,，;；\n]")
@@ -82,26 +82,32 @@ def make_compute_metrics(tokenizer, gold_lists):
 class NERGenerativeEvaluator:
     """逐批生成 -> 解析 -> 统计"""
 
-    def __init__(self, model, tokenizer, max_new_tokens=64, batch_size=8, max_length=512):
+    def __init__(self, model, tokenizer, max_new_tokens=64, batch_size=8, max_length=512, instruction=None):
         self.model = model
         self.tokenizer = tokenizer
         self.max_new_tokens = max_new_tokens
         self.batch_size = batch_size
         self.max_length = max_length
+        self.instruction = instruction  # 与训练一致的指令，生成时拼进prompt
 
     @torch.no_grad()
     def predict_texts(self, sentences):
         """对一批句子做生成预测，返回每句的原始生成文本。"""
         self.model.eval()
+        # 生成式解码左补齐
+        self.tokenizer.padding_side = "left"
+        self.tokenizer.truncation_side = "left"  # 超长时丢弃prompt头部、保留句尾，与训练对齐
+        prompts = [build_prompt(s, self.instruction) for s in sentences]
         raw_outputs = []
-        for i in range(0, len(sentences), self.batch_size):
-            batch = sentences[i : i + self.batch_size]
+        for i in range(0, len(prompts), self.batch_size):
+            batch = prompts[i : i + self.batch_size]
             enc = self.tokenizer(
                 batch,
                 return_tensors="pt",
                 padding=True,
                 truncation=True,
                 max_length=self.max_length,
+                add_special_tokens=False,  # 与训练 DataLoader 保持一致，避免多/少特殊 token
             ).to(self.model.device)
             out = self.model.generate(
                 **enc,
@@ -142,13 +148,12 @@ class NERGenerativeEvaluator:
         return metrics, predictions
 
 
-def save_test_report(metrics, predictions, run_dir, cfg_summary=""):
-    """把测试结果写成 test_result.txt + predictions.json + test_metrics.json。"""
+def save_test_report(metrics, predictions, run_dir, cfg_summary="", prefix="test"):
     run_dir = Path(run_dir)
     run_dir.mkdir(parents=True, exist_ok=True)
 
     lines = [
-        "==== bc2gm 基因实体识别 测试结果 ====",
+        "==== bc2gm 基因实体识别 评估结果 ====",
         cfg_summary,
         f"样本数      : {metrics['num_samples']}",
         f"Precision   : {metrics['precision']:.4f}",
@@ -157,10 +162,10 @@ def save_test_report(metrics, predictions, run_dir, cfg_summary=""):
         f"Exact Match : {metrics['exact_match']:.4f}",
         f"TP/FP/FN    : {metrics['tp']} / {metrics['fp']} / {metrics['fn']}",
     ]
-    (run_dir / "test_result.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    (run_dir / f"{prefix}_result.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    with open(run_dir / "predictions.json", "w", encoding="utf-8") as f:
+    with open(run_dir / f"{prefix}_predictions.json", "w", encoding="utf-8") as f:
         json.dump(predictions, f, ensure_ascii=False, indent=2)
-    with open(run_dir / "test_metrics.json", "w", encoding="utf-8") as f:
+    with open(run_dir / f"{prefix}_metrics.json", "w", encoding="utf-8") as f:
         json.dump(metrics, f, ensure_ascii=False, indent=2)
     return "\n".join(lines)
