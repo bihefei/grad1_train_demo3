@@ -90,15 +90,14 @@ def main(cfg, run_dir=None, text=None, file=None):
 if __name__ == "__main__":
     import argparse
 
-    manager, args = load_config_with_overrides()
+    pre = argparse.ArgumentParser(add_help=False)
+    pre.add_argument("--text", default=None, help="单句预测")
+    pre.add_argument("--file", default=None, help="批量预测文件（txt 每行一句 / json 同 bc2gm 格式）")
+    predict_args, rest = pre.parse_known_args()
+
+    manager, args = load_config_with_overrides(rest)
     print(manager.summary())
     print("-" * 60)
-
-    # 预测专用参数
-    parser = argparse.ArgumentParser(description="bc2gm 基因实体识别预测")
-    parser.add_argument("--text", default=None, help="单句预测")
-    parser.add_argument("--file", default=None, help="批量预测文件（txt 每行一句 / json 同 bc2gm 格式）")
-    predict_args, _ = parser.parse_known_args()
 
     main(
         manager.to_dict(),
